@@ -1,0 +1,14 @@
+{
+  "name": "@arsv2/linters",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Custom architecture linters for ARSV2",
+  "scripts": {
+    "arch": "ts-node arch-boundary.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "ts-node": "^10.9.0"
+  }
+}

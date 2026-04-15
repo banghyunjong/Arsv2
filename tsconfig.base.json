@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "lib": ["ES2022"],
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "moduleResolution": "node",
+    "baseUrl": ".",
+    "paths": {
+      "@arsv2/types": ["packages/types/src"],
+      "@arsv2/config": ["packages/config/src"],
+      "@arsv2/repo": ["packages/repo/src"],
+      "@arsv2/service": ["packages/service/src"],
+      "@arsv2/runtime": ["packages/runtime/src"],
+      "@arsv2/ui": ["packages/ui/src"]
+    }
+  },
+  "exclude": ["node_modules", "dist"]
+}

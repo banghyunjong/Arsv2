@@ -1,0 +1,21 @@
+{
+  "name": "@arsv2/config",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Layer 1: Application configuration for ARSV2",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "lint": "eslint src/"
+  },
+  "dependencies": {
+    "@arsv2/types": "*",
+    "dotenv": "^17.4.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  }
+}

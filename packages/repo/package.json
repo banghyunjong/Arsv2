@@ -1,0 +1,24 @@
+{
+  "name": "@arsv2/repo",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Layer 2: Data access layer for ARSV2 (CSV, future DB)",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "lint": "eslint src/"
+  },
+  "dependencies": {
+    "@arsv2/config": "*",
+    "@arsv2/types": "*",
+    "snowflake-sdk": "^2.4.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}
