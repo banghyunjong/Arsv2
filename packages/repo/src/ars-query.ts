@@ -85,28 +85,61 @@ export async function queryArsDetail(config: SnowflakeConfig, year: number): Pro
       }
 
       try {
-        // Debug: PLC 테이블 컬럼 구조 확인
-        const plcSample = await executeQuery(conn,
-          `SELECT * FROM RSC.VIBE_SP_ARS_PLC LIMIT 1`);
-        if (plcSample.length > 0) {
-          console.log(JSON.stringify({ level: 'debug', msg: 'VIBE_SP_ARS_PLC columns', keys: Object.keys(plcSample[0]) }));
-          console.log(JSON.stringify({ level: 'debug', msg: 'VIBE_SP_ARS_PLC sample row', row: plcSample[0] }));
+        // Debug: TEST 테이블 컬럼 구조 및 연도 분포 확인
+        const testSample = await executeQuery(conn,
+          `SELECT * FROM RSC.VIBE_SP_ARS_TEST LIMIT 1`);
+        if (testSample.length > 0) {
+          console.log(JSON.stringify({ level: 'debug', msg: 'VIBE_SP_ARS_TEST columns', keys: Object.keys(testSample[0]) }));
+          console.log(JSON.stringify({ level: 'debug', msg: 'VIBE_SP_ARS_TEST sample row', row: testSample[0] }));
+        } else {
+          console.log(JSON.stringify({ level: 'debug', msg: 'VIBE_SP_ARS_TEST is EMPTY' }));
         }
 
-        // Main query
-        const rawRows = await executeQuery(conn,
+        // Debug: VENDOR 테이블 컬럼 구조 확인
+        const vendorSample = await executeQuery(conn,
+          `SELECT * FROM RSC.SP_ARS_TABLE_FOR_ORDER_NUM_VENDOR LIMIT 1`);
+        if (vendorSample.length > 0) {
+          console.log(JSON.stringify({ level: 'debug', msg: 'VENDOR table columns', keys: Object.keys(vendorSample[0]) }));
+          console.log(JSON.stringify({ level: 'debug', msg: 'VENDOR table sample row', row: vendorSample[0] }));
+        }
+
+        const yearDist = await executeQuery(conn,
+          `SELECT "연도", COUNT(*) AS cnt FROM RSC.VIBE_SP_ARS_TEST GROUP BY "연도" ORDER BY "연도"`);
+        console.log(JSON.stringify({ level: 'debug', msg: 'VIBE_SP_ARS_TEST year distribution', years: yearDist, queryYear: shortYear }));
+
+        // Main query — try shortYear first; if 0 rows, try full year
+        let rawRows = await executeQuery(conn,
           `WITH FACTORY AS (
-             SELECT DISTINCT "통합코드", "컬러코드", "공급업체명"
-             FROM RSC.VIBE_SP_ARS_PLC
+             SELECT DISTINCT "스타일코드", "컬러코드", "공급업체명"
+             FROM RSC.SP_ARS_TABLE_FOR_ORDER_NUM_VENDOR
            )
            SELECT A.*, F."공급업체명"
            FROM RSC.VIBE_SP_ARS_TEST A
            LEFT JOIN FACTORY F
-             ON A."스타일코드" = F."통합코드"
+             ON A."스타일코드" = F."스타일코드"
              AND A."컬러코드" = F."컬러코드"
            WHERE A."연도" = ?
            ORDER BY A."시즌", A."복종", A."스타일코드", A."컬러코드"`,
           [shortYear]);
+
+        if (rawRows.length === 0 && shortYear !== year) {
+          console.log(JSON.stringify({ level: 'debug', msg: 'shortYear returned 0 rows, retrying with full year', shortYear, fullYear: year }));
+          rawRows = await executeQuery(conn,
+            `WITH FACTORY AS (
+               SELECT DISTINCT "스타일코드", "컬러코드", "공급업체명"
+               FROM RSC.SP_ARS_TABLE_FOR_ORDER_NUM_VENDOR
+             )
+             SELECT A.*, F."공급업체명"
+             FROM RSC.VIBE_SP_ARS_TEST A
+             LEFT JOIN FACTORY F
+               ON A."스타일코드" = F."스타일코드"
+               AND A."컬러코드" = F."컬러코드"
+             WHERE A."연도" = ?
+             ORDER BY A."시즌", A."복종", A."스타일코드", A."컬러코드"`,
+            [year]);
+        }
+
+        console.log(JSON.stringify({ level: 'debug', msg: 'Main query result count', count: rawRows.length }));
 
         if (rawRows.length > 0) {
           const first = rawRows[0];

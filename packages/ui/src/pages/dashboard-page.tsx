@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { type ReorderConfirmItem, type DetailGridItem } from '../data/mock-dashboard';
 import { fetchArsDetail } from '../data/ars-api';
+import { loadPinnedReorderItems } from '../data/reorder-csv';
 import { ReorderSummaryCards } from '../components/reorder-summary-cards';
 import { ReorderQuantityGrid } from '../components/reorder-quantity-grid';
 import { ReorderDetailTable } from '../components/reorder-detail-table';
+import { FactoryFabricGrid } from '../components/factory-fabric-grid';
 
 type Tab = 'detail' | 'reorder';
 
@@ -32,12 +34,17 @@ function buildReorderItems(ids: Set<string>, allItems: DetailGridItem[]): Reorde
           orderAmount: c.reorderQuantity * unitPrice,
         }));
         const totalQty = colors.reduce((s, c) => s + c.quantity, 0);
+        const w1 = Math.ceil(totalQty * 0.5);
+        const w2 = Math.ceil(totalQty * 0.3);
+        const w3 = Math.max(0, totalQty - w1 - w2);
         const seed = item.id.charCodeAt(item.id.length - 1);
         result.push({
           id: item.id,
           styleCode: item.styleCode,
           quantity: totalQty,
           orderAmount: totalQty * unitPrice,
+          totalReorderQty: totalQty,
+          w1, w2, w3,
           factory: item.colorBreakdown[0]?.supplierName ?? DEFAULT_FACTORY,
           planner: item.planner,
           sourcing: pickMock(MOCK_SOURCING, seed + 3),
@@ -67,6 +74,9 @@ function buildReorderItems(ids: Set<string>, allItems: DetailGridItem[]): Reorde
       orderAmount: c.reorderQuantity * unitPrice,
     }));
     const totalQty = colors.reduce((s, c) => s + c.quantity, 0);
+    const w1 = Math.ceil(totalQty * 0.5);
+    const w2 = Math.ceil(totalQty * 0.3);
+    const w3 = Math.max(0, totalQty - w1 - w2);
     const seed = parent.id.charCodeAt(parent.id.length - 1);
 
     result.push({
@@ -74,6 +84,8 @@ function buildReorderItems(ids: Set<string>, allItems: DetailGridItem[]): Reorde
       styleCode: parent.styleCode,
       quantity: totalQty,
       orderAmount: totalQty * unitPrice,
+      totalReorderQty: totalQty,
+      w1, w2, w3,
       factory: selected[0]?.supplierName ?? DEFAULT_FACTORY,
       planner: parent.planner,
       sourcing: pickMock(MOCK_SOURCING, seed + 3),
@@ -93,6 +105,12 @@ export function DashboardPage() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [reorderIds, setReorderIds] = useState<Set<string>>(new Set());
   const [plannerFilter, setPlannerFilter] = useState('');
+  // HARDCODED: CSV 기반 고정 리오더 (제거 시 csvItems 상태 + useEffect + reorderItems 병합 로직 삭제)
+  const [csvItems, setCsvItems] = useState<ReorderConfirmItem[]>([]);
+
+  useEffect(() => {
+    loadPinnedReorderItems().then(setCsvItems);
+  }, []);
 
   const handleFetch = useCallback(async (year: number) => {
     setLoading(true);
@@ -100,9 +118,8 @@ export function DashboardPage() {
     try {
       const items = await fetchArsDetail(year);
       setDetailItems(items);
-      setReorderIds(new Set(
-        items.filter((item) => item.achievementRate >= 200 && item.costRate < 35 && item.reorderQuantity > 0).map((item) => item.id),
-      ));
+      const autoIds = items.filter((item) => item.achievementRate >= 200 && item.costRate < 35 && item.reorderQuantity > 0).map((item) => item.id);
+      setReorderIds(new Set(autoIds));
     } catch (err) {
       setFetchError(err instanceof Error ? err.message : 'Failed to fetch');
     } finally {
@@ -122,7 +139,12 @@ export function DashboardPage() {
     [detailItems, plannerFilter],
   );
 
-  const reorderItems = useMemo(() => buildReorderItems(reorderIds, displayItems), [reorderIds, displayItems]);
+  const reorderItems = useMemo(() => {
+    const userItems = buildReorderItems(reorderIds, displayItems);
+    // HARDCODED: CSV 고정 항목을 맨 앞에 배치, 중복 제거
+    const csvCodes = new Set(csvItems.map((i) => i.styleCode));
+    return [...csvItems, ...userItems.filter((i) => !csvCodes.has(i.styleCode))];
+  }, [reorderIds, displayItems, csvItems]);
 
   // Highlight tracking — persists until next action
   const [highlightAddedId, setHighlightAddedId] = useState<string | null>(null);
@@ -200,7 +222,14 @@ export function DashboardPage() {
         <ReorderDetailTable items={displayItems} onToggleReorder={handleToggleReorder} reorderIds={reorderIds} highlightId={highlightRemovedId} yearFilter={yearFilter} onYearChange={setYearFilter} />
       )}
       {activeTab === 'reorder' && (
-        <ReorderQuantityGrid items={reorderItems} onRemove={handleRemoveReorder} highlightId={highlightAddedId} />
+        <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+          <div style={{ flex: '6 1 0', minWidth: 0, overflow: 'hidden' }}>
+            <ReorderQuantityGrid items={reorderItems} onRemove={handleRemoveReorder} highlightId={highlightAddedId} />
+          </div>
+          <div style={{ flex: '4 1 0', minWidth: 0 }}>
+            <FactoryFabricGrid />
+          </div>
+        </div>
       )}
     </main>
   );

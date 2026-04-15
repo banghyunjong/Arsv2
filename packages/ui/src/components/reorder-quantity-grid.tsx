@@ -33,6 +33,10 @@ export function ReorderQuantityGrid({ items, onRemove, highlightId, viewportClas
               <th style={{ width: 100 }} className="text-center">컬러</th>
               <th style={{ width: 80 }} className="table-num">수량</th>
               <th style={{ width: 120 }} className="table-num">발주액</th>
+              <th style={{ width: 80 }} className="table-num">리오더 총량</th>
+              <th style={{ width: 70 }} className="table-num">W+1</th>
+              <th style={{ width: 70 }} className="table-num">W+2</th>
+              <th style={{ width: 70 }} className="table-num">W+3</th>
               <th style={{ width: 110 }}>공장</th>
               <th style={{ width: 70 }} className="text-center">기획</th>
               <th style={{ width: 70 }} className="text-center">소싱</th>
@@ -56,7 +60,7 @@ export function ReorderQuantityGrid({ items, onRemove, highlightId, viewportClas
             })}
             {items.length === 0 && (
               <tr>
-                <td colSpan={9} className="text-center text-muted" style={{ padding: 'var(--space-8)' }}>
+                <td colSpan={13} className="text-center text-muted" style={{ padding: 'var(--space-8)' }}>
                   리오더 항목이 없습니다
                 </td>
               </tr>
@@ -83,6 +87,7 @@ function ReorderRow({ item, isExpanded, isHighlighted, onToggle, onRemove }: Reo
       <tr style={{ height: 28 }} className={isHighlighted ? 'row-highlight-added' : ''}>
         <td>
           <code style={{ fontSize: 'var(--text-overline)' }}>{item.styleCode}</code>
+          {item.styleName && <div style={{ fontSize: 'var(--text-overline)', opacity: 0.7 }}>{item.styleName}</div>}
         </td>
         <td className="text-center">
           {hasColors ? (
@@ -102,6 +107,10 @@ function ReorderRow({ item, isExpanded, isHighlighted, onToggle, onRemove }: Reo
         </td>
         <td className="table-num"><strong>{fmtQty(item.quantity)}</strong></td>
         <td className="table-num">{fmtAmt(item.orderAmount)}</td>
+        <td className="table-num">{fmtQty(item.totalReorderQty)}</td>
+        <td className="table-num">{fmtQty(item.w1)}</td>
+        <td className="table-num">{fmtQty(item.w2)}</td>
+        <td className="table-num">{fmtQty(item.w3)}</td>
         <td>{item.factory}</td>
         <td className="text-center">{item.planner}</td>
         <td className="text-center">{item.sourcing}</td>
@@ -117,8 +126,16 @@ function ReorderRow({ item, isExpanded, isHighlighted, onToggle, onRemove }: Reo
             {c.colorName}
           </td>
           <td className="table-num">{fmtQty(c.quantity)}</td>
-          <td className="table-num">{fmtAmt(c.orderAmount)}</td>
-          <td colSpan={5} />
+          <td className="table-num">{c.orderAmount ? fmtAmt(c.orderAmount) : ''}</td>
+          <td className="table-num">{c.totalReorderQty != null ? fmtQty(c.totalReorderQty) : ''}</td>
+          <td className="table-num">{c.w1 != null ? fmtQty(c.w1) : ''}</td>
+          <td className="table-num">{c.w2 != null ? fmtQty(c.w2) : ''}</td>
+          <td className="table-num">{c.w3 != null ? fmtQty(c.w3) : ''}</td>
+          <td />
+          <td />
+          <td />
+          <td className="text-center" style={{ fontSize: 'var(--text-overline)' }}>{c.deliveryDate ?? ''}</td>
+          <td />
         </tr>
       ))}
     </>

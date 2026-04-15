@@ -108,14 +108,13 @@ export function buildInteractivePerformanceColumns(
         );
       },
     }),
-    col.display({
-      id: 'reorderQuantity',
+    col.accessor('reorderQuantity', {
       header: '리오더수량',
       size: PERF_SIZES.reorderQuantity,
       meta: { align: 'right' },
-      cell: ({ row }) => {
-        const qty = row.original.reorderQuantity;
-        return qty > 0 ? <strong>{fmtQty(qty)}</strong> : <span className="text-muted">—</span>;
+      cell: (i) => {
+        const v = i.getValue();
+        return v > 0 ? <strong>{fmtQty(v)}</strong> : <span className="text-muted">—</span>;
       },
     }),
   ];

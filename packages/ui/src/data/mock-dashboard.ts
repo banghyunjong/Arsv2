@@ -35,13 +35,23 @@ export interface ReorderColorRow {
   colorCode: string;
   quantity: number;
   orderAmount: number;
+  totalReorderQty?: number;
+  w1?: number;
+  w2?: number;
+  w3?: number;
+  deliveryDate?: string;
 }
 
 export interface ReorderConfirmItem {
   id: string;
   styleCode: string;
+  styleName?: string;        // 통합_컬러_스타일명 (CSV 데이터)
   quantity: number;
   orderAmount: number;
+  totalReorderQty: number;  // 리오더 총량
+  w1: number;               // W+1 주차 수량
+  w2: number;               // W+2 주차 수량
+  w3: number;               // W+3 주차 수량
   factory: string;
   planner: string;
   sourcing: string;
