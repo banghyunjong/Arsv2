@@ -115,8 +115,8 @@ export function DashboardSplitPage() {
     try {
       const items = await fetchArsDetail(year);
       setDetailItems(items);
-      const autoIds = items.filter((item) => item.achievementRate >= 200 && item.costRate < 35 && item.reorderQuantity > 0).map((item) => item.id);
-      setReorderIds(new Set(autoIds));
+      // const autoIds = items.filter((item) => item.achievementRate >= 200 && item.costRate < 35 && item.reorderQuantity > 0).map((item) => item.id);
+      // setReorderIds(new Set(autoIds));
     } catch (err) {
       setFetchError(err instanceof Error ? err.message : 'Failed to fetch');
     } finally {
