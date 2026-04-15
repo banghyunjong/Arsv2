@@ -14,6 +14,7 @@ export interface PerformanceMetrics {
 export interface ColorBreakdownItem extends PerformanceMetrics {
   colorName: string;            // '블랙', '화이트'
   colorCode: string;            // '#111111' (스워치용)
+  supplierName?: string;        // 공급업체명 (PLC 테이블)
 }
 
 export interface DetailGridItem extends PerformanceMetrics {

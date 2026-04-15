@@ -50,7 +50,6 @@ export function ColorBreakdownGrid({ items, trailingWidth = 70, parentId, onTogg
             return (
               <tr key={item.colorName}>
                 <td style={{ width: BASIC_TOTAL_WIDTH, paddingLeft: 'var(--space-6)' }}>
-                  <span className="color-swatch" style={{ backgroundColor: item.colorCode }} />
                   {item.colorName}
                 </td>
                 {perfKeys.map((key) => (

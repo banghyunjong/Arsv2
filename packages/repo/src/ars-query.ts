@@ -22,6 +22,7 @@ export interface ArsColorRow {
   weeklySalesVolume: number; // 주판량
   costRate: number | null;   // 사후원가율
   reorderQuantity: number;   // 상품유형_리오더수량(기본값)
+  supplierName: string | null; // 공급업체명 (PLC JOIN)
 }
 
 function num(v: unknown): number {
@@ -55,44 +56,71 @@ function mapRow(r: Record<string, unknown>): ArsColorRow {
     weeklySalesVolume: num(r['주판량']),
     costRate: numOrNull(r['사후원가율']),
     reorderQuantity: num(r['상품유형_리오더수량(기본값)']),
+    supplierName: r['공급업체명'] != null ? str(r['공급업체명']) || null : null,
   };
+}
+
+function executeQuery(conn: ReturnType<typeof createSnowflakeConnection>, sql: string, binds?: (string | number)[]): Promise<Record<string, unknown>[]> {
+  return new Promise((resolve, reject) => {
+    conn.execute({
+      sqlText: sql,
+      ...(binds ? { binds } : {}),
+      complete: (err, _stmt, rows) => {
+        if (err) reject(new Error(`Snowflake query failed: ${err.message}`));
+        else resolve((rows ?? []) as Record<string, unknown>[]);
+      },
+    });
+  });
 }
 
 export async function queryArsDetail(config: SnowflakeConfig, year: number): Promise<ArsColorRow[]> {
   const conn = createSnowflakeConnection(config);
-  // UI sends full year (2026), query expects short year (26)
   const shortYear = year >= 2000 ? year - 2000 : year;
 
   return new Promise((resolve, reject) => {
-    conn.connect((err) => {
+    conn.connect(async (err) => {
       if (err) {
         reject(new Error(`Snowflake connection failed: ${err.message}`));
         return;
       }
 
-      conn.execute({
-        sqlText: `SELECT * FROM RSC.VIBE_SP_ARS_TEST
-                  WHERE "연도" = ?
-                  ORDER BY "시즌", "복종", "스타일코드", "컬러코드"`,
-        binds: [shortYear],
-        complete: async (err, _stmt, rows) => {
-          if (err) {
-            await destroyConnection(conn).catch(() => {});
-            reject(new Error(`Snowflake query failed: ${err.message}`));
-            return;
-          }
+      try {
+        // Debug: PLC 테이블 컬럼 구조 확인
+        const plcSample = await executeQuery(conn,
+          `SELECT * FROM RSC.VIBE_SP_ARS_PLC LIMIT 1`);
+        if (plcSample.length > 0) {
+          console.log(JSON.stringify({ level: 'debug', msg: 'VIBE_SP_ARS_PLC columns', keys: Object.keys(plcSample[0]) }));
+          console.log(JSON.stringify({ level: 'debug', msg: 'VIBE_SP_ARS_PLC sample row', row: plcSample[0] }));
+        }
 
-          const rawRows = rows ?? [];
-          if (rawRows.length > 0) {
-            const first = rawRows[0] as Record<string, unknown>;
-            console.log(JSON.stringify({ level: 'debug', msg: 'VIBE_SP_ARS_TEST first row keys', keys: Object.keys(first) }));
-            console.log(JSON.stringify({ level: 'debug', msg: 'VIBE_SP_ARS_TEST first row sample', row: first }));
-          }
-          const mapped = rawRows.map((r) => mapRow(r as Record<string, unknown>));
-          await destroyConnection(conn).catch(() => {});
-          resolve(mapped);
-        },
-      });
+        // Main query
+        const rawRows = await executeQuery(conn,
+          `WITH FACTORY AS (
+             SELECT DISTINCT "통합코드", "컬러코드", "공급업체명"
+             FROM RSC.VIBE_SP_ARS_PLC
+           )
+           SELECT A.*, F."공급업체명"
+           FROM RSC.VIBE_SP_ARS_TEST A
+           LEFT JOIN FACTORY F
+             ON A."스타일코드" = F."통합코드"
+             AND A."컬러코드" = F."컬러코드"
+           WHERE A."연도" = ?
+           ORDER BY A."시즌", A."복종", A."스타일코드", A."컬러코드"`,
+          [shortYear]);
+
+        if (rawRows.length > 0) {
+          const first = rawRows[0];
+          console.log(JSON.stringify({ level: 'debug', msg: 'JOIN result first row keys', keys: Object.keys(first) }));
+          console.log(JSON.stringify({ level: 'debug', msg: 'JOIN result first row', row: first }));
+        }
+
+        const mapped = rawRows.map((r) => mapRow(r));
+        await destroyConnection(conn).catch(() => {});
+        resolve(mapped);
+      } catch (e) {
+        await destroyConnection(conn).catch(() => {});
+        reject(e);
+      }
     });
   });
 }

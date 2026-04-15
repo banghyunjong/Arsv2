@@ -2,6 +2,9 @@ import type { ReorderConfirmItem } from '../data/mock-dashboard';
 
 interface Props {
   reorderItems: ReorderConfirmItem[];
+  plannerFilter: string;
+  onPlannerChange: (v: string) => void;
+  planners: string[];
 }
 
 const fmtAmt = (v: number) => {
@@ -10,7 +13,7 @@ const fmtAmt = (v: number) => {
   return v.toLocaleString();
 };
 
-export function ReorderSummaryCards({ reorderItems }: Props) {
+export function ReorderSummaryCards({ reorderItems, plannerFilter, onPlannerChange, planners }: Props) {
   const styleCount = reorderItems.length;
   const totalQty = reorderItems.reduce((s, i) => s + i.quantity, 0);
   const totalAmount = reorderItems.reduce((s, i) => s + i.orderAmount, 0);
@@ -66,7 +69,7 @@ export function ReorderSummaryCards({ reorderItems }: Props) {
           </span>
         </div>
 
-        <div className="summary-card" style={{ flex: '1.5 1 200px', minWidth: 200 }}>
+        <div className="summary-card" style={{ flex: '1.5 1 180px', minWidth: 180 }}>
           <span className="summary-card-label">생산지 포트폴리오</span>
           {portfolio.length > 0 ? (
             <>
@@ -87,6 +90,23 @@ export function ReorderSummaryCards({ reorderItems }: Props) {
           ) : (
             <span className="text-muted" style={{ fontSize: 'var(--text-caption)' }}>선택된 리오더 없음</span>
           )}
+        </div>
+
+        <div className="summary-card" style={{ flex: '0 0 140px', minWidth: 140 }}>
+          <span className="summary-card-label">기획자</span>
+          <input
+            className="planner-filter-input"
+            type="text"
+            list="planner-list"
+            placeholder="전체"
+            value={plannerFilter}
+            onChange={(e) => onPlannerChange(e.target.value)}
+          />
+          <datalist id="planner-list">
+            {planners.map((p) => (
+              <option key={p} value={p} />
+            ))}
+          </datalist>
         </div>
       </div>
     </section>

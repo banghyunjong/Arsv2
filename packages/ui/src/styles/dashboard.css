@@ -12,12 +12,12 @@
 }
 
 .summary-card {
-  flex: 1 1 120px;
-  min-width: 120px;
+  flex: 1 1 100px;
+  min-width: 100px;
   background-color: var(--glass-bg);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-2);
   backdrop-filter: blur(12px);
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
@@ -272,6 +272,14 @@
   background-color: #0b1120;
 }
 
+.grid-viewport-tall {
+  height: calc(150vh - 420px);
+  overflow: auto;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  background-color: #0b1120;
+}
+
 .grid-table {
   table-layout: fixed;
   width: 100%;
@@ -477,4 +485,28 @@
   border: 1px solid rgba(255, 255, 255, 0.2);
   margin-right: var(--space-1);
   vertical-align: middle;
+}
+
+/* ─── Planner Filter Input ─── */
+
+.planner-filter-input {
+  width: 100%;
+  padding: 4px 6px;
+  font-family: var(--font-family-base);
+  font-size: var(--text-caption);
+  color: var(--color-gray-700);
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.planner-filter-input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.1);
+}
+
+.planner-filter-input::placeholder {
+  color: var(--color-gray-400);
 }

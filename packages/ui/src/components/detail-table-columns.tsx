@@ -88,7 +88,7 @@ export function buildInteractivePerformanceColumns(
       meta: { align: 'center' },
       cell: ({ row }) => {
         const id = row.original.id;
-        const weeks = periodOverrides.get(id) ?? Math.round(row.original.adjustedSellingPeriod / 7);
+        const weeks = periodOverrides.get(id) ?? 4;
         return (
           <select
             className="period-select"
@@ -100,6 +100,10 @@ export function buildInteractivePerformanceColumns(
             <option value={2}>2주</option>
             <option value={3}>3주</option>
             <option value={4}>4주</option>
+            <option value={5}>5주</option>
+            <option value={6}>6주</option>
+            <option value={7}>7주</option>
+            <option value={8}>8주</option>
           </select>
         );
       },
@@ -110,9 +114,7 @@ export function buildInteractivePerformanceColumns(
       size: PERF_SIZES.reorderQuantity,
       meta: { align: 'right' },
       cell: ({ row }) => {
-        const item = row.original;
-        const weeks = periodOverrides.get(item.id) ?? Math.round(item.adjustedSellingPeriod / 7);
-        const qty = calcReorderQuantity(item, weeks);
+        const qty = row.original.reorderQuantity;
         return qty > 0 ? <strong>{fmtQty(qty)}</strong> : <span className="text-muted">—</span>;
       },
     }),

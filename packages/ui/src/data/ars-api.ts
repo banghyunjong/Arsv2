@@ -21,6 +21,7 @@ interface ArsColorRow {
   weeklySalesVolume: number;
   costRate: number | null;
   reorderQuantity: number;
+  supplierName: string | null;
 }
 
 // ─── Color code → hex mapping ─────────────────────────────
@@ -86,6 +87,7 @@ function mapColorRow(row: ArsColorRow): ColorBreakdownItem {
     costRate: ratioToPct(row.costRate),
     adjustedSellingPeriod: 0,
     reorderQuantity: row.reorderQuantity,
+    supplierName: row.supplierName ?? undefined,
   };
 }
 

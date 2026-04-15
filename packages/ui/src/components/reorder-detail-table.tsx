@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useCallback } from 'react';
+import { useState, useMemo, useRef, useCallback, type ReactNode } from 'react';
 import {
   useReactTable,
   getCoreRowModel,
@@ -7,8 +7,9 @@ import {
   flexRender,
   type SortingState,
   type Row,
+  type ColumnDef,
 } from '@tanstack/react-table';
-import { useVirtualizer } from '@tanstack/react-virtual';
+import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual';
 import type { DetailGridItem } from '../data/mock-dashboard';
 import { buildBasicInfoColumns, buildInteractivePerformanceColumns, buildToggleColumn, buildReorderSelectColumn } from './detail-table-columns';
 import { ColorBreakdownGrid } from './color-breakdown-grid';
@@ -125,57 +126,39 @@ export function ReorderDetailTable({ items, onToggleReorder, reorderIds, highlig
       />
 
       <div ref={parentRef} className={viewportClass || "grid-viewport"}>
-        <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
-          <table className="table grid-table">
-            <thead>
-              {table.getHeaderGroups().map((hg) => (
-                <tr key={hg.id}>
-                  {hg.headers.map((header) => {
-                    const meta = header.column.columnDef.meta as { align?: string; borderRight?: boolean } | undefined;
-                    const isGroup = header.isPlaceholder === false && header.subHeaders.length > 0;
-                    return (
-                      <th
-                        key={header.id}
-                        colSpan={header.colSpan}
-                        className={[
-                          meta?.align === 'right' ? 'table-num' : '',
-                          meta?.align === 'center' ? 'text-center' : '',
-                          meta?.borderRight ? 'col-group-separator' : '',
-                          isGroup ? 'col-group-header' : '',
-                        ].filter(Boolean).join(' ')}
-                        style={{
-                          width: header.getSize(),
-                          cursor: header.column.getCanSort() ? 'pointer' : 'default',
-                        }}
-                        onClick={header.column.getToggleSortingHandler()}
-                      >
-                        {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-                        {!isGroup && ({ asc: ' ↑', desc: ' ↓' }[header.column.getIsSorted() as string] ?? '')}
-                      </th>
-                    );
-                  })}
-                </tr>
-              ))}
-            </thead>
-            <tbody>
-              {virtualizer.getVirtualItems().map((vRow) => {
-                const row = rows[vRow.index] as Row<DetailGridItem>;
-                const item = row.original;
-                const isExpanded = colorExpandedIds.has(item.id);
-                return (
-                  <VirtualRow key={row.id} row={row} vRow={vRow} isExpanded={isExpanded} item={item} trailingWidth={onToggleReorder ? 150 : 70} onToggleReorder={onToggleReorder} reorderIds={reorderIds} highlightId={highlightId} />
-                );
-              })}
-              {rows.length === 0 && (
-                <tr>
-                  <td colSpan={columns.length + 14} className="text-center text-muted" style={{ padding: 'var(--space-8)' }}>
-                    조건에 맞는 항목이 없습니다
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <table className="table grid-table">
+          <thead>
+            {table.getHeaderGroups().map((hg) => (
+              <tr key={hg.id}>
+                {hg.headers.map((header) => {
+                  const meta = header.column.columnDef.meta as { align?: string; borderRight?: boolean } | undefined;
+                  const isGroup = header.isPlaceholder === false && header.subHeaders.length > 0;
+                  return (
+                    <th
+                      key={header.id}
+                      colSpan={header.colSpan}
+                      className={[
+                        meta?.align === 'right' ? 'table-num' : '',
+                        meta?.align === 'center' ? 'text-center' : '',
+                        meta?.borderRight ? 'col-group-separator' : '',
+                        isGroup ? 'col-group-header' : '',
+                      ].filter(Boolean).join(' ')}
+                      style={{
+                        width: header.getSize(),
+                        cursor: header.column.getCanSort() ? 'pointer' : 'default',
+                      }}
+                      onClick={header.column.getToggleSortingHandler()}
+                    >
+                      {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                      {!isGroup && ({ asc: ' ↑', desc: ' ↓' }[header.column.getIsSorted() as string] ?? '')}
+                    </th>
+                  );
+                })}
+              </tr>
+            ))}
+          </thead>
+          <VirtualBody virtualizer={virtualizer} rows={rows} colorExpandedIds={colorExpandedIds} columns={columns} onToggleReorder={onToggleReorder} reorderIds={reorderIds} highlightId={highlightId} />
+        </table>
       </div>
     </section>
   );
@@ -214,6 +197,48 @@ function Filters({ yearFilter, seasonFilter, garmentFilter, search, years, seaso
       </select>
       <input className="filter-search" type="text" placeholder="아이템 또는 스타일코드 검색" value={search} onChange={(e) => onSearchChange(e.target.value)} />
     </div>
+  );
+}
+
+// ─── Virtual Body (spacer-based positioning) ───────────────
+
+interface VirtualBodyProps {
+  virtualizer: Virtualizer<HTMLDivElement, Element>;
+  rows: Row<DetailGridItem>[];
+  colorExpandedIds: Set<string>;
+  columns: ColumnDef<DetailGridItem, unknown>[];
+  onToggleReorder?: (id: string) => void;
+  reorderIds?: Set<string>;
+  highlightId?: string | null;
+}
+
+function VirtualBody({ virtualizer, rows, colorExpandedIds, columns, onToggleReorder, reorderIds, highlightId }: VirtualBodyProps) {
+  const virtualItems = virtualizer.getVirtualItems();
+  const paddingTop = virtualItems.length > 0 ? virtualItems[0].start : 0;
+  const paddingBottom = virtualItems.length > 0
+    ? virtualizer.getTotalSize() - virtualItems[virtualItems.length - 1].end
+    : 0;
+
+  return (
+    <tbody>
+      {paddingTop > 0 && <tr><td style={{ height: paddingTop, padding: 0, border: 'none' }} /></tr>}
+      {virtualItems.map((vRow) => {
+        const row = rows[vRow.index] as Row<DetailGridItem>;
+        const item = row.original;
+        const isExpanded = colorExpandedIds.has(item.id);
+        return (
+          <VirtualRow key={row.id} row={row} vRow={vRow} isExpanded={isExpanded} item={item} trailingWidth={onToggleReorder ? 150 : 70} onToggleReorder={onToggleReorder} reorderIds={reorderIds} highlightId={highlightId} />
+        );
+      })}
+      {rows.length === 0 && (
+        <tr>
+          <td colSpan={columns.length + 14} className="text-center text-muted" style={{ padding: 'var(--space-8)' }}>
+            조건에 맞는 항목이 없습니다
+          </td>
+        </tr>
+      )}
+      {paddingBottom > 0 && <tr><td style={{ height: paddingBottom, padding: 0, border: 'none' }} /></tr>}
+    </tbody>
   );
 }
 

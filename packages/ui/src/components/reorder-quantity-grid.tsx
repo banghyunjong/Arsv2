@@ -95,7 +95,6 @@ function ReorderRow({ item, isExpanded, isHighlighted, onToggle, onRemove }: Reo
           ) : (
             item.colors[0] && (
               <span>
-                <span className="color-swatch" style={{ backgroundColor: item.colors[0].colorCode }} />
                 {item.colors[0].colorName}
               </span>
             )
@@ -115,7 +114,6 @@ function ReorderRow({ item, isExpanded, isHighlighted, onToggle, onRemove }: Reo
         <tr key={c.colorName} className="color-breakdown-row-inline">
           <td />
           <td className="text-center">
-            <span className="color-swatch" style={{ backgroundColor: c.colorCode }} />
             {c.colorName}
           </td>
           <td className="table-num">{fmtQty(c.quantity)}</td>
