@@ -9,5 +9,4 @@ export { ProductRepo } from './product-repo';
 export { InventoryRepo } from './inventory-repo';
 export { ReorderRepo } from './reorder-repo';
 export { SupplierRepo } from './supplier-repo';
-export { createSnowflakeConnection, connectAndTest, destroyConnection } from './snowflake';
 export { queryArsDetail, type ArsColorRow } from './ars-query';
