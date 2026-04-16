@@ -6,8 +6,14 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { SnowflakeConfig } from '@arsv2/config';
 
-// docs/ 폴더 위치: packages/repo/src → packages/repo → packages → ArsV2 → docs
-const DOCS_DIR = path.resolve(__dirname, '..', '..', '..', 'docs');
+// docs/ 폴더 위치 (환경별 fallback)
+// Vercel: process.cwd() = /var/task, includeFiles로 docs/ 포함됨
+// 로컬: __dirname = packages/repo/dist → 3단계 위 = 모노레포 루트
+const DOCS_DIR = (() => {
+  const cwdDocs = path.resolve(process.cwd(), 'docs');
+  try { fs.accessSync(cwdDocs); return cwdDocs; } catch { /* 없으면 fallback */ }
+  return path.resolve(__dirname, '..', '..', '..', 'docs');
+})();
 
 export interface ArsColorRow {
   year: number;              // 연도 (25, 26)

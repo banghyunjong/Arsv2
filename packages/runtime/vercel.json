@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "buildCommand": "cd ../.. && npm run build && mkdir -p packages/runtime/docs && cp docs/*.csv packages/runtime/docs/",
+  "installCommand": "npm install --prefix=../..",
+  "builds": [
+    {
+      "src": "dist/vercel-entry.js",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": ["docs/**"]
+      }
+    }
+  ],
+  "routes": [
+    { "src": "/(.*)", "dest": "/dist/vercel-entry.js" }
+  ]
+}

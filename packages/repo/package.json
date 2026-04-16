@@ -14,7 +14,9 @@
   },
   "dependencies": {
     "@arsv2/config": "*",
-    "@arsv2/types": "*",
+    "@arsv2/types": "*"
+  },
+  "optionalDependencies": {
     "snowflake-sdk": "^2.4.0"
   },
   "devDependencies": {
