@@ -1,12 +1,17 @@
 {
+  "version": 2,
   "buildCommand": "cd ../.. && npm run build && mkdir -p packages/runtime/docs && cp docs/*.csv packages/runtime/docs/",
   "installCommand": "npm install --prefix=../..",
-  "functions": {
-    "api/index.js": {
-      "includeFiles": "docs/**"
+  "builds": [
+    {
+      "src": "api/index.js",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": ["docs/**"]
+      }
     }
-  },
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/api/index" }
+  ],
+  "routes": [
+    { "src": "/(.*)", "dest": "/api/index.js" }
   ]
 }
