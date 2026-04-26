@@ -33,6 +33,8 @@ export interface ArsColorRow {
   costRate: number | null;   // 사후원가율
   reorderQuantity: number;   // 상품유형_리오더수량(기본값)
   supplierName: string | null; // 공급업체명 (vendor CSV JOIN)
+  reorderRound: number;      // 생산차수 (vendor CSV JOIN)
+  factoryName: string | null;  // 작업공장명 (vendor CSV JOIN)
 }
 
 function num(v: unknown): number {
@@ -67,6 +69,8 @@ function mapRow(r: Record<string, unknown>): ArsColorRow {
     costRate: numOrNull(r['사후원가율']),
     reorderQuantity: num(r['상품유형_리오더수량(기본값)']),
     supplierName: r['공급업체명'] != null ? str(r['공급업체명']) || null : null,
+    reorderRound: num(r['생산차수']),
+    factoryName: r['작업공장명'] != null ? str(r['작업공장명']) || null : null,
   };
 }
 
@@ -108,21 +112,34 @@ export async function queryArsDetail(
   const arsText = fs.readFileSync(path.join(DOCS_DIR, 'VIBE_SP_ARS_TEST.csv'), 'utf-8');
   const arsRows = parseCsvToRecords(arsText);
 
-  // 공급업체 CSV → lookup Map (스타일코드::컬러코드 → 공급업체명)
+  // 공급업체 CSV → lookup Map (스타일코드::컬러코드 → vendor info)
   const vendorText = fs.readFileSync(path.join(DOCS_DIR, 'SP_ARS_TABLE_FOR_ORDER_NUM_VENDOR.csv'), 'utf-8');
   const vendorRows = parseCsvToRecords(vendorText);
-  const vendorMap = new Map<string, string>();
+  interface VendorInfo { 공급업체명: string; 생산차수: string; 작업공장명: string; }
+  const vendorMap = new Map<string, VendorInfo>();
   for (const v of vendorRows) {
     const key = `${v['스타일코드']}::${v['컬러코드']}`;
-    if (!vendorMap.has(key) && v['공급업체명']) vendorMap.set(key, v['공급업체명']);
+    if (!vendorMap.has(key)) {
+      vendorMap.set(key, {
+        공급업체명: v['공급업체명'] ?? '',
+        생산차수: v['생산차수'] ?? '0',
+        작업공장명: v['작업공장명(벤더)'] ?? '',
+      });
+    }
   }
 
-  // 연도 필터 → 공급업체명 주입 → ArsColorRow 매핑 → 정렬
+  // 연도 필터 → vendor 정보 주입 → ArsColorRow 매핑 → 정렬
   return arsRows
     .filter((r) => Number(r['연도']) === shortYear)
     .map((r) => {
       const key = `${r['스타일코드']}::${r['컬러코드']}`;
-      return mapRow({ ...r, 공급업체명: vendorMap.get(key) ?? null });
+      const vendor = vendorMap.get(key);
+      return mapRow({
+        ...r,
+        공급업체명: vendor?.공급업체명 || null,
+        생산차수: vendor?.생산차수 || '0',
+        작업공장명: vendor?.작업공장명 || null,
+      });
     })
     .sort((a, b) =>
       a.season.localeCompare(b.season) ||

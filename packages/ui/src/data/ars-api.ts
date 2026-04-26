@@ -22,6 +22,8 @@ interface ArsColorRow {
   costRate: number | null;
   reorderQuantity: number;
   supplierName: string | null;
+  reorderRound: number;
+  factoryName: string | null;
 }
 
 // ─── Color code → hex mapping ─────────────────────────────
@@ -88,6 +90,7 @@ function mapColorRow(row: ArsColorRow): ColorBreakdownItem {
     adjustedSellingPeriod: 0,
     reorderQuantity: row.reorderQuantity,
     supplierName: row.supplierName ?? undefined,
+    reorderRound: row.reorderRound ?? 0,
   };
 }
 
@@ -134,6 +137,11 @@ function groupToDetailItems(rows: ArsColorRow[], year: number): DetailGridItem[]
       ? colorBreakdown.reduce((s, c) => s + c.sellThroughTarget, 0) / colorBreakdown.length
       : 0;
 
+    // 대표 공장명: 첫 번째 컬러의 supplierName 또는 factoryName
+    const factoryName = first.factoryName || first.supplierName || '미지정';
+    // 최대 생산차수
+    const maxRound = Math.max(...colorRows.map((r) => r.reorderRound ?? 0), 0);
+
     items.push({
       id: `SF-${String(idx++).padStart(3, '0')}`,
       year,
@@ -142,6 +150,8 @@ function groupToDetailItems(rows: ArsColorRow[], year: number): DetailGridItem[]
       itemName: first.itemName,
       planner: first.planner,
       styleCode,
+      factoryName,
+      reorderRound: maxRound,
       sellThroughTarget: Math.round(avgTarget * 10) / 10,
       actualSalesQty: totalSalesQty,
       achievementRate: Math.round(avgAchievement * 10) / 10,
@@ -150,6 +160,8 @@ function groupToDetailItems(rows: ArsColorRow[], year: number): DetailGridItem[]
       costRate: Math.round(avgCostRate * 10) / 10,
       adjustedSellingPeriod: 0,
       reorderQuantity: totalReorderQty,
+      thisWeekReorderQty: totalWeeklyVolume,
+      fourWeekReorderQty: totalWeeklyVolume * 4,
       colorBreakdown,
     });
   }

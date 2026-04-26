@@ -9,7 +9,7 @@ interface Props {
   reorderIds?: Set<string>;
 }
 
-const perfKeys: (keyof typeof PERF_SIZES)[] = [
+const perfKeys: (keyof ColorBreakdownItem & keyof typeof PERF_SIZES)[] = [
   'sellThroughTarget', 'actualSalesQty', 'achievementRate',
   'weeklySellThrough', 'weeklySalesVolume', 'costRate',
   'adjustedSellingPeriod', 'reorderQuantity',

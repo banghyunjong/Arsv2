@@ -6,6 +6,10 @@ import { ReorderSummaryCards } from '../components/reorder-summary-cards';
 import { ReorderQuantityGrid } from '../components/reorder-quantity-grid';
 import { ReorderDetailTable } from '../components/reorder-detail-table';
 import { FactoryFabricGrid } from '../components/factory-fabric-grid';
+import { ReorderDetailPopup } from '../components/reorder-detail-popup';
+import { ProductionInfoPopup } from '../components/production-info-popup';
+import { StyleDetailPopup } from '../components/style-detail-popup';
+import { ReorderRequestPopup } from '../components/reorder-request-popup';
 
 type Tab = 'detail' | 'reorder';
 
@@ -107,6 +111,9 @@ export function DashboardPage() {
   const [plannerFilter, setPlannerFilter] = useState('');
   // HARDCODED: CSV 기반 고정 리오더 (제거 시 csvItems 상태 + useEffect + reorderItems 병합 로직 삭제)
   const [csvItems, setCsvItems] = useState<ReorderConfirmItem[]>([]);
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
+  const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
+  const [factoryOverrides, setFactoryOverrides] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
     loadPinnedReorderItems().then(setCsvItems);
@@ -146,6 +153,64 @@ export function DashboardPage() {
     return [...csvItems, ...userItems.filter((i) => !csvCodes.has(i.styleCode))];
   }, [reorderIds, displayItems, csvItems]);
 
+  const handleToggleCheck = useCallback((id: string) => {
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleConfirm = useCallback(() => {
+    setConfirmedIds((prev) => {
+      const next = new Set(prev);
+      for (const id of checkedIds) {
+        if (!prev.has(id)) next.add(id);
+      }
+      return next;
+    });
+  }, [checkedIds]);
+
+  const handleCancelRequest = useCallback(() => {
+    const toCancel = [...checkedIds].filter((id) => !confirmedIds.has(id));
+    if (toCancel.length === 0) return;
+    setReorderIds((prev) => {
+      const next = new Set(prev);
+      for (const id of toCancel) {
+        next.delete(id);
+        for (const rid of prev) {
+          if (rid.startsWith(id + '::')) next.delete(rid);
+        }
+      }
+      return next;
+    });
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      for (const id of toCancel) next.delete(id);
+      return next;
+    });
+  }, [checkedIds, confirmedIds]);
+
+  const handleFactoryChange = useCallback((id: string, factory: string) => {
+    setFactoryOverrides((prev) => new Map(prev).set(id, factory));
+  }, []);
+
+  // Apply factory overrides to reorder items
+  const reorderItemsWithOverrides = useMemo(() => {
+    return reorderItems.map((item) => {
+      const factoryOverride = factoryOverrides.get(item.id);
+      return factoryOverride ? { ...item, factory: factoryOverride } : item;
+    });
+  }, [reorderItems, factoryOverrides]);
+
+  // Popup states
+  const [stylePopupItem, setStylePopupItem] = useState<DetailGridItem | null>(null);
+  const [factoryPopupItem, setFactoryPopupItem] = useState<DetailGridItem | null>(null);
+  const [reorderQtyPopupItem, setReorderQtyPopupItem] = useState<DetailGridItem | null>(null);
+  const [reorderRequestItem, setReorderRequestItem] = useState<DetailGridItem | null>(null);
+  const [periodOverridesForPopup] = useState<Map<string, number>>(new Map());
+
   // Highlight tracking — persists until next action
   const [highlightAddedId, setHighlightAddedId] = useState<string | null>(null);
   const [highlightRemovedId, setHighlightRemovedId] = useState<string | null>(null);
@@ -162,16 +227,30 @@ export function DashboardPage() {
   }, []);
 
   const handleToggleReorder = useCallback((id: string) => {
+    // 이미 선택된 경우 직접 해제
+    if (reorderIds.has(id)) {
+      setReorderIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      return;
+    }
+    // 새 선택: 팝업을 통해 처리
+    const item = displayItems.find((i) => i.id === id);
+    if (item) {
+      setReorderRequestItem(item);
+    }
+  }, [reorderIds, displayItems]);
+
+  const handleReorderRequestConfirm = useCallback((id: string, _selectedColors: string[], _quantities: Record<string, number>) => {
     setReorderIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-        flashAdded(id);
-      }
+      next.add(id);
       return next;
     });
+    flashAdded(id);
+    setReorderRequestItem(null);
   }, [flashAdded]);
 
   // Remove all color-level IDs for a parent (used by reorder grid "제거" button)
@@ -219,17 +298,58 @@ export function DashboardPage() {
       </div>
 
       {activeTab === 'detail' && (
-        <ReorderDetailTable items={displayItems} onToggleReorder={handleToggleReorder} reorderIds={reorderIds} highlightId={highlightRemovedId} yearFilter={yearFilter} onYearChange={setYearFilter} />
+        <ReorderDetailTable
+          items={displayItems}
+          onToggleReorder={handleToggleReorder}
+          reorderIds={reorderIds}
+          highlightId={highlightRemovedId}
+          yearFilter={yearFilter}
+          onYearChange={setYearFilter}
+          onStyleClick={setStylePopupItem}
+          onFactoryClick={setFactoryPopupItem}
+          onReorderQtyClick={setReorderQtyPopupItem}
+        />
       )}
       {activeTab === 'reorder' && (
         <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
           <div style={{ flex: '6 1 0', minWidth: 0, overflow: 'hidden' }}>
-            <ReorderQuantityGrid items={reorderItems} onRemove={handleRemoveReorder} highlightId={highlightAddedId} />
+            <ReorderQuantityGrid
+              items={reorderItemsWithOverrides}
+              onRemove={handleRemoveReorder}
+              highlightId={highlightAddedId}
+              checkedIds={checkedIds}
+              confirmedIds={confirmedIds}
+              onToggleCheck={handleToggleCheck}
+              onConfirm={handleConfirm}
+              onCancelRequest={handleCancelRequest}
+              onFactoryChange={handleFactoryChange}
+            />
           </div>
           <div style={{ flex: '4 1 0', minWidth: 0 }}>
             <FactoryFabricGrid />
           </div>
         </div>
+      )}
+      {/* Popups */}
+      {stylePopupItem && (
+        <StyleDetailPopup item={stylePopupItem} onClose={() => setStylePopupItem(null)} />
+      )}
+      {factoryPopupItem && (
+        <ProductionInfoPopup item={factoryPopupItem} onClose={() => setFactoryPopupItem(null)} />
+      )}
+      {reorderQtyPopupItem && (
+        <ReorderDetailPopup
+          item={reorderQtyPopupItem}
+          periodWeeks={periodOverridesForPopup.get(reorderQtyPopupItem.id) ?? 4}
+          onClose={() => setReorderQtyPopupItem(null)}
+        />
+      )}
+      {reorderRequestItem && (
+        <ReorderRequestPopup
+          item={reorderRequestItem}
+          onConfirm={handleReorderRequestConfirm}
+          onCancel={() => setReorderRequestItem(null)}
+        />
       )}
     </main>
   );

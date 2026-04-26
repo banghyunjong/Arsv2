@@ -8,7 +8,8 @@ interface Props {
 }
 
 const fmtAmt = (v: number) => {
-  if (v >= 100_000_000) return `${(v / 100_000_000).toFixed(1)}억`;
+  const m = v / 1_000_000;
+  if (m >= 1) return `${m.toFixed(1)}백만`;
   if (v >= 10_000) return `${Math.round(v / 10_000).toLocaleString()}만`;
   return v.toLocaleString();
 };

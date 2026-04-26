@@ -15,6 +15,8 @@ export const PERF_SIZES = {
   costRate: 65,
   adjustedSellingPeriod: 85,
   reorderQuantity: 80,
+  thisWeekReorderQty: 90,
+  fourWeekReorderQty: 90,
 } as const;
 
 const BASIC_TOTAL_WIDTH = 55 + 65 + 65 + 150 + 75 + 105; // 515
@@ -28,17 +30,44 @@ const fmtDays = (v: number) => `${v}일`;
 
 // ─── Basic Info Columns (Group 1) ────────────────────────
 
-export function buildBasicInfoColumns() {
+export function buildBasicInfoColumns(onStyleClick?: (item: DetailGridItem) => void, onFactoryClick?: (item: DetailGridItem) => void) {
   return [
     col.accessor('year', { header: '연도', size: 55, meta: { align: 'center' } }),
     col.accessor('season', { header: '시즌', size: 65, meta: { align: 'center' } }),
     col.accessor('garmentType', { header: '복종', size: 65, meta: { align: 'center' } }),
     col.accessor('itemName', { header: '아이템', size: 150 }),
-    col.accessor('planner', { header: '기획자', size: 75, meta: { align: 'center' } }),
     col.accessor('styleCode', {
       header: '스타일코드', size: 105,
-      meta: { borderRight: true },
-      cell: (info) => <code style={{ fontSize: 'var(--text-overline)' }}>{info.getValue()}</code>,
+      cell: (info) => {
+        const item = info.row.original;
+        return onStyleClick ? (
+          <button className="cell-clickable" onClick={() => onStyleClick(item)}>
+            <code style={{ fontSize: 'var(--text-overline)' }}>{info.getValue()}</code>
+          </button>
+        ) : (
+          <code style={{ fontSize: 'var(--text-overline)' }}>{info.getValue()}</code>
+        );
+      },
+    }),
+    col.accessor('planner', { header: '기획자', size: 75, meta: { align: 'center' } }),
+    col.accessor('factoryName', {
+      header: '공장', size: 100,
+      cell: (info) => {
+        const item = info.row.original;
+        const value = info.getValue();
+        return onFactoryClick ? (
+          <button className="cell-clickable" onClick={() => onFactoryClick(item)}>
+            {value}
+          </button>
+        ) : value;
+      },
+    }),
+    col.accessor('reorderRound', {
+      header: '차수', size: 50, meta: { align: 'center' },
+      cell: (info) => {
+        const v = info.getValue();
+        return v > 0 ? `${v}차` : '—';
+      },
     }),
   ];
 }
@@ -78,14 +107,19 @@ export function calcReorderQuantity(item: DetailGridItem, weeks: number): number
 export function buildInteractivePerformanceColumns(
   periodOverrides: Map<string, number>,
   onPeriodChange: (id: string, weeks: number) => void,
+  onReorderQtyClick?: (item: DetailGridItem) => void,
 ) {
   return [
     ...buildPerformanceColumnsBase(),
-    col.display({
-      id: 'adjustedSellingPeriod',
+    col.accessor('adjustedSellingPeriod', {
       header: '보정판매기간',
       size: PERF_SIZES.adjustedSellingPeriod,
       meta: { align: 'center' },
+      sortingFn: (a, b) => {
+        const wa = periodOverrides.get(a.original.id) ?? 4;
+        const wb = periodOverrides.get(b.original.id) ?? 4;
+        return wa - wb;
+      },
       cell: ({ row }) => {
         const id = row.original.id;
         const weeks = periodOverrides.get(id) ?? 4;
@@ -108,13 +142,37 @@ export function buildInteractivePerformanceColumns(
         );
       },
     }),
-    col.accessor('reorderQuantity', {
-      header: '리오더수량',
-      size: PERF_SIZES.reorderQuantity,
+    col.display({
+      id: 'thisWeekReorderQty',
+      header: '이번주 리오더',
+      size: PERF_SIZES.thisWeekReorderQty,
       meta: { align: 'right' },
-      cell: (i) => {
-        const v = i.getValue();
-        return v > 0 ? <strong>{fmtQty(v)}</strong> : <span className="text-muted">—</span>;
+      cell: ({ row }) => {
+        const item = row.original;
+        const qty = item.weeklySalesVolume;
+        if (qty <= 0) return <span className="text-muted">—</span>;
+        return onReorderQtyClick ? (
+          <button className="cell-clickable" onClick={() => onReorderQtyClick(item)}>
+            <strong>{fmtQty(qty)}</strong>
+          </button>
+        ) : <strong>{fmtQty(qty)}</strong>;
+      },
+    }),
+    col.display({
+      id: 'fourWeekReorderQty',
+      header: '4주 리오더',
+      size: PERF_SIZES.fourWeekReorderQty,
+      meta: { align: 'right' },
+      cell: ({ row }) => {
+        const item = row.original;
+        const weeks = periodOverrides.get(item.id) ?? 4;
+        const qty = item.weeklySalesVolume * weeks;
+        if (qty <= 0) return <span className="text-muted">—</span>;
+        return onReorderQtyClick ? (
+          <button className="cell-clickable" onClick={() => onReorderQtyClick(item)}>
+            <strong>{fmtQty(qty)}</strong>
+          </button>
+        ) : <strong>{fmtQty(qty)}</strong>;
       },
     }),
   ];

@@ -104,6 +104,9 @@ export function DashboardSplitPage() {
   const [plannerFilter, setPlannerFilter] = useState('');
   // HARDCODED: CSV 기반 고정 리오더 (제거 시 csvItems 상태 + useEffect + reorderItems 병합 로직 삭제)
   const [csvItems, setCsvItems] = useState<ReorderConfirmItem[]>([]);
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
+  const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
+  const [factoryOverrides, setFactoryOverrides] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
     loadPinnedReorderItems().then(setCsvItems);
@@ -141,6 +144,25 @@ export function DashboardSplitPage() {
     const csvCodes = new Set(csvItems.map((i) => i.styleCode));
     return [...csvItems, ...userItems.filter((i) => !csvCodes.has(i.styleCode))];
   }, [reorderIds, displayItems, csvItems]);
+
+  const handleToggleCheck = useCallback((id: string) => {
+    setCheckedIds((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  }, []);
+  const handleConfirm = useCallback(() => {
+    setConfirmedIds((prev) => { const n = new Set(prev); for (const id of checkedIds) n.add(id); return n; });
+  }, [checkedIds]);
+  const handleCancelRequest = useCallback(() => {
+    const toCancel = [...checkedIds].filter((id) => !confirmedIds.has(id));
+    setReorderIds((prev) => { const n = new Set(prev); for (const id of toCancel) { n.delete(id); for (const r of prev) if (r.startsWith(id + '::')) n.delete(r); } return n; });
+    setCheckedIds((prev) => { const n = new Set(prev); for (const id of toCancel) n.delete(id); return n; });
+  }, [checkedIds, confirmedIds]);
+  const handleFactoryChange = useCallback((id: string, factory: string) => {
+    setFactoryOverrides((prev) => new Map(prev).set(id, factory));
+  }, []);
+  const reorderItemsWithOverrides = useMemo(() =>
+    reorderItems.map((item) => { const f = factoryOverrides.get(item.id); return f ? { ...item, factory: f } : item; }),
+    [reorderItems, factoryOverrides],
+  );
 
   const [highlightAddedId, setHighlightAddedId] = useState<string | null>(null);
   const [highlightRemovedId, setHighlightRemovedId] = useState<string | null>(null);
@@ -202,7 +224,18 @@ export function DashboardSplitPage() {
             <h2 className="section-title">리오더 확정</h2>
             <span className="text-muted" style={{ fontSize: 'var(--text-overline)' }}>{reorderItems.length}건</span>
           </div>
-          <ReorderQuantityGrid items={reorderItems} onRemove={handleRemoveReorder} highlightId={highlightAddedId} viewportClass="grid-viewport-half" />
+          <ReorderQuantityGrid
+            items={reorderItemsWithOverrides}
+            onRemove={handleRemoveReorder}
+            highlightId={highlightAddedId}
+            viewportClass="grid-viewport-half"
+            checkedIds={checkedIds}
+            confirmedIds={confirmedIds}
+            onToggleCheck={handleToggleCheck}
+            onConfirm={handleConfirm}
+            onCancelRequest={handleCancelRequest}
+            onFactoryChange={handleFactoryChange}
+          />
         </div>
         <div style={{ flex: '4 1 0', minWidth: 0 }}>
           <FactoryFabricGrid viewportClass="grid-viewport-half" />

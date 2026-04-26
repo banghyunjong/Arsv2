@@ -13,6 +13,7 @@ import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual';
 import type { DetailGridItem } from '../data/mock-dashboard';
 import { buildBasicInfoColumns, buildInteractivePerformanceColumns, buildToggleColumn, buildReorderSelectColumn } from './detail-table-columns';
 import { ColorBreakdownGrid } from './color-breakdown-grid';
+import { exportDetailToExcel } from '../utils/excel-export';
 
 interface Props {
   items: DetailGridItem[];
@@ -22,6 +23,9 @@ interface Props {
   yearFilter: string;
   onYearChange: (v: string) => void;
   viewportClass?: string;
+  onStyleClick?: (item: DetailGridItem) => void;
+  onFactoryClick?: (item: DetailGridItem) => void;
+  onReorderQtyClick?: (item: DetailGridItem) => void;
 }
 
 const col = createColumnHelper<DetailGridItem>();
@@ -32,10 +36,12 @@ function unique<T>(items: T[], key: (i: T) => string): string[] {
   return [...new Set(items.map(key))].sort();
 }
 
-export function ReorderDetailTable({ items, onToggleReorder, reorderIds, highlightId, yearFilter, onYearChange, viewportClass }: Props) {
+export function ReorderDetailTable({ items, onToggleReorder, reorderIds, highlightId, yearFilter, onYearChange, viewportClass, onStyleClick, onFactoryClick, onReorderQtyClick }: Props) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [seasonFilter, setSeasonFilter] = useState('all');
   const [garmentFilter, setGarmentFilter] = useState('all');
+  const [plannerFilter, setPlannerFilter] = useState('all');
+  const [factoryFilter, setFactoryFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [colorExpandedIds, setColorExpandedIds] = useState<Set<string>>(new Set());
   const [periodOverrides, setPeriodOverrides] = useState<Map<string, number>>(new Map());
@@ -58,34 +64,38 @@ export function ReorderDetailTable({ items, onToggleReorder, reorderIds, highlig
       if (yearFilter !== 'all' && String(item.year) !== yearFilter) return false;
       if (seasonFilter !== 'all' && item.season !== seasonFilter) return false;
       if (garmentFilter !== 'all' && item.garmentType !== garmentFilter) return false;
+      if (plannerFilter !== 'all' && item.planner !== plannerFilter) return false;
+      if (factoryFilter !== 'all' && item.factoryName !== factoryFilter) return false;
       if (search) {
         const q = search.toLowerCase();
         return item.itemName.toLowerCase().includes(q) || item.styleCode.toLowerCase().includes(q);
       }
       return true;
     });
-  }, [items, yearFilter, seasonFilter, garmentFilter, search]);
+  }, [items, yearFilter, seasonFilter, garmentFilter, plannerFilter, factoryFilter, search]);
 
   const years = useMemo(() => unique(items, (i) => String(i.year)), [items]);
   const seasons = useMemo(() => unique(items, (i) => i.season), [items]);
   const garmentTypes = useMemo(() => unique(items, (i) => i.garmentType), [items]);
+  const planners = useMemo(() => unique(items, (i) => i.planner), [items]);
+  const factories = useMemo(() => unique(items, (i) => i.factoryName), [items]);
 
   const columns = useMemo(() => [
     col.group({
       id: 'basic-info',
       header: '기본정보',
-      columns: buildBasicInfoColumns(),
+      columns: buildBasicInfoColumns(onStyleClick, onFactoryClick),
     }),
     col.group({
       id: 'performance',
       header: '성과 / 리오더',
       columns: [
-        ...buildInteractivePerformanceColumns(periodOverrides, handlePeriodChange),
+        ...buildInteractivePerformanceColumns(periodOverrides, handlePeriodChange, onReorderQtyClick),
         buildToggleColumn(toggleColor, colorExpandedIds),
         ...(onToggleReorder && reorderIds ? [buildReorderSelectColumn(onToggleReorder, reorderIds)] : []),
       ],
     }),
-  ], [toggleColor, colorExpandedIds, onToggleReorder, reorderIds, periodOverrides, handlePeriodChange]);
+  ], [toggleColor, colorExpandedIds, onToggleReorder, reorderIds, periodOverrides, handlePeriodChange, onStyleClick, onFactoryClick, onReorderQtyClick]);
 
   const table = useReactTable({
     data: filtered,
@@ -116,13 +126,24 @@ export function ReorderDetailTable({ items, onToggleReorder, reorderIds, highlig
     <section>
       <div className="flex-between mb-2">
         <h2 className="section-title">상세 내역</h2>
-        <span className="text-muted" style={{ fontSize: 'var(--text-overline)' }}>{filtered.length}건</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+          <span className="text-muted" style={{ fontSize: 'var(--text-overline)' }}>{filtered.length}건</span>
+          <button
+            className="btn-toggle"
+            onClick={() => exportDetailToExcel({ items: filtered })}
+            title="현재 필터/정렬 상태로 엑셀 다운로드"
+          >
+            엑셀 다운로드
+          </button>
+        </div>
       </div>
 
       <Filters
-        yearFilter={yearFilter} seasonFilter={seasonFilter} garmentFilter={garmentFilter} search={search}
-        years={years} seasons={seasons} garmentTypes={garmentTypes}
-        onYearChange={onYearChange} onSeasonChange={setSeasonFilter} onGarmentChange={setGarmentFilter} onSearchChange={setSearch}
+        yearFilter={yearFilter} seasonFilter={seasonFilter} garmentFilter={garmentFilter}
+        plannerFilter={plannerFilter} factoryFilter={factoryFilter} search={search}
+        years={years} seasons={seasons} garmentTypes={garmentTypes} planners={planners} factories={factories}
+        onYearChange={onYearChange} onSeasonChange={setSeasonFilter} onGarmentChange={setGarmentFilter}
+        onPlannerChange={setPlannerFilter} onFactoryChange={setFactoryFilter} onSearchChange={setSearch}
       />
 
       <div ref={parentRef} className={viewportClass || "grid-viewport"}>
@@ -170,17 +191,23 @@ interface FilterProps {
   yearFilter: string;
   seasonFilter: string;
   garmentFilter: string;
+  plannerFilter: string;
+  factoryFilter: string;
   search: string;
   years: string[];
   seasons: string[];
   garmentTypes: string[];
+  planners: string[];
+  factories: string[];
   onYearChange: (v: string) => void;
   onSeasonChange: (v: string) => void;
   onGarmentChange: (v: string) => void;
+  onPlannerChange: (v: string) => void;
+  onFactoryChange: (v: string) => void;
   onSearchChange: (v: string) => void;
 }
 
-function Filters({ yearFilter, seasonFilter, garmentFilter, search, years, seasons, garmentTypes, onYearChange, onSeasonChange, onGarmentChange, onSearchChange }: FilterProps) {
+function Filters({ yearFilter, seasonFilter, garmentFilter, plannerFilter, factoryFilter, search, years, seasons, garmentTypes, planners, factories, onYearChange, onSeasonChange, onGarmentChange, onPlannerChange, onFactoryChange, onSearchChange }: FilterProps) {
   return (
     <div className="filter-bar mb-2">
       <select className="filter-select" value={yearFilter} onChange={(e) => onYearChange(e.target.value)}>
@@ -194,6 +221,14 @@ function Filters({ yearFilter, seasonFilter, garmentFilter, search, years, seaso
       <select className="filter-select" value={garmentFilter} onChange={(e) => onGarmentChange(e.target.value)}>
         <option value="all">전체 복종</option>
         {garmentTypes.map((g) => <option key={g} value={g}>{g}</option>)}
+      </select>
+      <select className="filter-select" value={plannerFilter} onChange={(e) => onPlannerChange(e.target.value)}>
+        <option value="all">전체 기획자</option>
+        {planners.map((p) => <option key={p} value={p}>{p}</option>)}
+      </select>
+      <select className="filter-select" value={factoryFilter} onChange={(e) => onFactoryChange(e.target.value)}>
+        <option value="all">전체 공장</option>
+        {factories.map((f) => <option key={f} value={f}>{f}</option>)}
       </select>
       <input className="filter-search" type="text" placeholder="아이템 또는 스타일코드 검색" value={search} onChange={(e) => onSearchChange(e.target.value)} />
     </div>
